@@ -1,2 +1,15 @@
-node_modules
+# .NET build folders
+bin/
+obj/
+
+# Logs
+*.log
+*.txt
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Environment files
 .env

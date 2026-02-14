@@ -6,10 +6,19 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ================== SERVICES ==================
+
+// Configure Forwarded Headers for Railway/Linux proxy
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Controllers + JSON config
 builder.Services.AddControllers()
@@ -21,9 +30,9 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Database Context
+// Database Context (InMemory for Fast Fix/Demo)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseInMemoryDatabase("CocktailDb"));
 
 // Dependency Injection
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
@@ -36,19 +45,16 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-// ================== CORS ==================
+// ================== CORS (PRODUCTION READY) ==================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins(
-                    "http://localhost:5173",
-                    "https://TU-FRONTEND.vercel.app" // 🔁 CAMBIA ESTO cuando subas el front
-                )
+            policy.WithOrigins("https://granizados-two.vercel.app")
                 .AllowAnyMethod()
                 .AllowAnyHeader()
-                .AllowCredentials();
+                .SetIsOriginAllowedToAllowWildcardSubdomains();
         });
 });
 
@@ -65,12 +71,62 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "fallback_secret_key_at_least_32_characters_long")
             )
         };
     });
 
 var app = builder.Build();
+
+// 1. Forwarded Headers (Railway Proxy)
+app.UseForwardedHeaders();
+
+// 2. CORS (MUST BE AT THE VERY TOP)
+app.UseCors("AllowFrontend");
+
+// 3. Global Error Handler
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[GLOBAL ERROR] {ex.Message}");
+        
+        // Ensure CORS headers are present even on error
+        if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
+        {
+            context.Response.Headers.Append("Access-Control-Allow-Origin", "https://granizados-two.vercel.app");
+        }
+
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { 
+            error = "Internal Server Error", 
+            message = ex.Message,
+            path = context.Request.Path
+        });
+    }
+});
+
+app.UseHttpsRedirection();
+
+// 4. Swagger (Activo en producción)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cocktail API V1");
+    c.RoutePrefix = "swagger";
+});
+
+app.UseStaticFiles();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
 
 // ================== AUTO DB INIT ==================
 using (var scope = app.Services.CreateScope())
@@ -113,46 +169,5 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"UPLOAD DIR ERROR: {ex.Message}");
     }
 }
-
-// ================== GLOBAL ERROR HANDLER ==================
-app.Use(async (context, next) =>
-{
-    try
-    {
-        await next();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"[GLOBAL ERROR] {ex.Message}");
-        context.Response.StatusCode = 500;
-        context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(new { 
-            error = "Internal Server Error", 
-            message = ex.Message,
-            path = context.Request.Path
-        });
-    }
-});
-
-// ================== PIPELINE ==================
-
-// 🔥 SWAGGER ACTIVO EN PRODUCCIÓN (FIX PRINCIPAL)
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cocktail API V1");
-    c.RoutePrefix = "swagger";
-});
-
-app.UseCors("AllowFrontend");
-
-app.UseHttpsRedirection();
-
-app.UseStaticFiles();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
 
 app.Run();

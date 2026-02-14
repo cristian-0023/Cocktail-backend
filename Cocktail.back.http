@@ -1,4 +1,4 @@
-@Cocktail.back_HostAddress = http://localhost:5199
+@Cocktail.back_HostAddress = cocktail-backend-production-e449.up.railway.app
 
 GET {{Cocktail.back_HostAddress}}/weatherforecast/
 Accept: application/json
