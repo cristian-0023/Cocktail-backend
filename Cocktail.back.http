@@ -1,0 +1,6 @@
+@Cocktail.back_HostAddress = http://localhost:5199
+
+GET {{Cocktail.back_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,15 @@
+﻿  Determinando los proyectos que se van a restaurar...
+  Todos los proyectos est├ín actualizados para la restauraci├│n.
+C:\Users\BRAN\OneDrive\Desktop\proyecto granizado\GranisadosCandyCocktail\Cocktail.back\Services\AuthService.cs(16,26): error CS0246: El nombre del tipo o del espacio de nombres 'ApplicationDbContext' no se encontr├│ (┬┐falta una directiva using o una referencia de ensamblado?) [C:\Users\BRAN\OneDrive\Desktop\proyecto granizado\GranisadosCandyCocktail\Cocktail.back\Cocktail.back.csproj]
+C:\Users\BRAN\OneDrive\Desktop\proyecto granizado\GranisadosCandyCocktail\Cocktail.back\Services\AuthService.cs(19,60): error CS0246: El nombre del tipo o del espacio de nombres 'ApplicationDbContext' no se encontr├│ (┬┐falta una directiva using o una referencia de ensamblado?) [C:\Users\BRAN\OneDrive\Desktop\proyecto granizado\GranisadosCandyCocktail\Cocktail.back\Cocktail.back.csproj]
+
+ERROR al compilar.
+
+C:\Users\BRAN\OneDrive\Desktop\proyecto granizado\GranisadosCandyCocktail\Cocktail.back\Services\AuthService.cs(16,26): error CS0246: El nombre del tipo o del espacio de nombres 'ApplicationDbContext' no se encontr├│ (┬┐falta una directiva using o una referencia de ensamblado?) [C:\Users\BRAN\OneDrive\Desktop\proyecto granizado\GranisadosCandyCocktail\Cocktail.back\Cocktail.back.csproj]
+C:\Users\BRAN\OneDrive\Desktop\proyecto granizado\GranisadosCandyCocktail\Cocktail.back\Services\AuthService.cs(19,60): error CS0246: El nombre del tipo o del espacio de nombres 'ApplicationDbContext' no se encontr├│ (┬┐falta una directiva using o una referencia de ensamblado?) [C:\Users\BRAN\OneDrive\Desktop\proyecto granizado\GranisadosCandyCocktail\Cocktail.back\Cocktail.back.csproj]
+    0 Advertencia(s)
+    2 Errores
+
+Tiempo transcurrido 00:00:02.05
+
+Hay actualizaciones de carga de trabajo disponibles. Ejecute "dotnet workload list" para obtener m├ís informaci├│n.
