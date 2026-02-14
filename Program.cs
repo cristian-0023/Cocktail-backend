@@ -9,13 +9,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// ================== SERVICES ==================
 
+// Controllers + JSON config
 builder.Services.AddControllers()
     .AddJsonOptions(options => {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -34,21 +36,23 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-// CORS
+// ================== CORS ==================
 builder.Services.AddCors(options =>
 {
-                // Configurar política específica para el frontend
-                options.AddPolicy("AllowFrontend",
-                    policy =>
-                    {
-                        policy.WithOrigins("http://localhost:5173")
-                              .AllowAnyMethod()
-                              .AllowAnyHeader()
-                              .AllowCredentials(); // Permitir credenciales (cookies/headers de autenticación)
-                    });
+    options.AddPolicy("AllowFrontend",
+        policy =>
+        {
+            policy.WithOrigins(
+                    "http://localhost:5173",
+                    "https://TU-FRONTEND.vercel.app" // 🔁 CAMBIA ESTO cuando subas el front
+                )
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials();
+        });
 });
 
-// JWT Authentication
+// ================== JWT ==================
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -60,52 +64,57 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])
+            )
         };
     });
 
 var app = builder.Build();
 
-// Auto-create database
+// ================== AUTO DB INIT ==================
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    try 
+    try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        Console.WriteLine("Initializing database schema (v2)...");
+        Console.WriteLine("Initializing database schema...");
         context.Database.EnsureCreated();
         Console.WriteLine("Database initialized successfully.");
-        
-        // Verify admin user exists
+
         var adminUser = context.Users.FirstOrDefault(u => u.Correo == "admin@test.com");
         if (adminUser != null)
         {
-            Console.WriteLine($"✅ Admin user found: {adminUser.Nombre} (ID: {adminUser.IdUsuario})");
-            Console.WriteLine($"   Email: {adminUser.Correo}");
-            Console.WriteLine($"   Role: {adminUser.Rol?.NombreRol ?? "NULL"}");
-
-            // Validar y actualizar imagen si es necesario (Fix usuario)
-            string newImageUrl = @"https://chatgpt.com/s/m_698f9c808e648191b46acfd0c376c8bd";
-            if (adminUser.ImagenPerfilURL != newImageUrl)
-            {
-                Console.WriteLine("Updating admin profile image...");
-                adminUser.ImagenPerfilURL = newImageUrl;
-                context.SaveChanges();
-                Console.WriteLine("Admin profile image updated.");
-            }
+            Console.WriteLine($"Admin user found: {adminUser.Nombre}");
         }
         else
         {
-            Console.WriteLine("⚠️ WARNING: Admin user NOT found in database!");
+            Console.WriteLine("WARNING: Admin user not found.");
         }
     }
     catch (Exception ex)
     {
         Console.WriteLine($"DATABASE ERROR: {ex.Message}");
     }
+
+    // Ensure uploads directory exists
+    try
+    {
+        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "products");
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+            Console.WriteLine("Created uploads directory: " + uploadsFolder);
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"UPLOAD DIR ERROR: {ex.Message}");
+    }
 }
 
+// ================== GLOBAL ERROR HANDLER ==================
 app.Use(async (context, next) =>
 {
     try
@@ -115,26 +124,31 @@ app.Use(async (context, next) =>
     catch (Exception ex)
     {
         Console.WriteLine($"[GLOBAL ERROR] {ex.Message}");
-        Console.WriteLine(ex.StackTrace);
         context.Response.StatusCode = 500;
-        await context.Response.WriteAsJsonAsync(new { error = ex.Message, detail = "Ver logs del servidor." });
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { 
+            error = "Internal Server Error", 
+            message = ex.Message,
+            path = context.Request.Path
+        });
     }
 });
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// ================== PIPELINE ==================
+
+// 🔥 SWAGGER ACTIVO EN PRODUCCIÓN (FIX PRINCIPAL)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cocktail API V1");
+    c.RoutePrefix = "swagger";
+});
 
 app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
-
-
 
 app.UseAuthentication();
 app.UseAuthorization();

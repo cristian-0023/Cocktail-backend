@@ -13,10 +13,8 @@
         "packagesPath": "C:\\Users\\BRAN\\.nuget\\packages\\",
         "outputPath": "C:\\Users\\BRAN\\OneDrive\\Desktop\\proyecto granizado\\GranisadosCandyCocktail\\Cocktail.back\\obj\\",
         "projectStyle": "PackageReference",
-        "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-        ],
         "configFilePaths": [
+          "C:\\Users\\BRAN\\OneDrive\\Desktop\\proyecto granizado\\GranisadosCandyCocktail\\Cocktail.back\\NuGet.Config",
           "C:\\Users\\BRAN\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
