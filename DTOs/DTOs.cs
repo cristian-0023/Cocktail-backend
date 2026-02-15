@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Cocktail.back.DTOs
 {
@@ -23,6 +23,9 @@ namespace Cocktail.back.DTOs
 
         [Required]
         public string Contrasena { get; set; } = string.Empty;
+
+        public string Rol { get; set; } = "Invitado";
+        public bool Estado { get; set; } = true;
     }
 
     public class ProductDto

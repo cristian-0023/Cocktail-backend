@@ -30,9 +30,9 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Database Context (InMemory for Fast Fix/Demo)
+// Database Context (SQL Server LocalDB)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseInMemoryDatabase("CocktailDb"));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Dependency Injection
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
@@ -45,16 +45,16 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-// ================== CORS (PRODUCTION READY) ==================
+// ================== CORS ==================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("https://granizados-two.vercel.app")
+            policy.WithOrigins("http://localhost:5173")
                 .AllowAnyMethod()
                 .AllowAnyHeader()
-                .SetIsOriginAllowedToAllowWildcardSubdomains();
+                .AllowCredentials();
         });
 });
 
@@ -78,13 +78,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 var app = builder.Build();
 
-// 1. Forwarded Headers (Railway Proxy)
-app.UseForwardedHeaders();
-
-// 2. CORS (MUST BE AT THE VERY TOP)
+// 1. CORS
 app.UseCors("AllowFrontend");
 
-// 3. Global Error Handler
+// 2. Global Error Handler
 app.Use(async (context, next) =>
 {
     try
@@ -94,13 +91,6 @@ app.Use(async (context, next) =>
     catch (Exception ex)
     {
         Console.WriteLine($"[GLOBAL ERROR] {ex.Message}");
-        
-        // Ensure CORS headers are present even on error
-        if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
-        {
-            context.Response.Headers.Append("Access-Control-Allow-Origin", "https://granizados-two.vercel.app");
-        }
-
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsJsonAsync(new { 

@@ -38,6 +38,11 @@ namespace Cocktail.back.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] RegisterDto dto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             if (await _userRepository.UserExistsAsync(dto.Correo))
                 return BadRequest("El correo ya está registrado.");
 
@@ -46,8 +51,8 @@ namespace Cocktail.back.Controllers
                 Nombre = dto.Nombre,
                 Correo = dto.Correo,
                 Contrasena = BCrypt.Net.BCrypt.HashPassword(dto.Contrasena),
-                IdRol = 2, // Default to Invitado, can be improved to accept role
-                Estado = true
+                IdRol = dto.Rol == "Admin" ? 1 : 2,
+                Estado = dto.Estado
             };
 
             await _userRepository.CreateAsync(user);
@@ -57,13 +62,18 @@ namespace Cocktail.back.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UserDto dto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             var user = await _userRepository.GetByIdAsync(id);
             if (user == null) return NotFound();
 
             user.Nombre = dto.Nombre;
             user.Correo = dto.Correo;
             user.Estado = dto.Estado;
-            // Update role if needed (mapping Rol string to IdRol)
+            user.IdRol = dto.Rol == "Admin" ? 1 : 2;
             
             await _userRepository.UpdateAsync(user);
             return Ok(new { message = "Usuario actualizado" });
@@ -73,7 +83,7 @@ namespace Cocktail.back.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             // Prevent self-deletion
-            var currentUserIdClaim = User.FindFirst("userId") ?? User.FindFirst(ClaimTypes.NameIdentifier);
+            var currentUserIdClaim = this.User.FindFirst("userId") ?? this.User.FindFirst(ClaimTypes.NameIdentifier);
             if (currentUserIdClaim != null && int.TryParse(currentUserIdClaim.Value, out int currentId))
             {
                 if (currentId == id)
