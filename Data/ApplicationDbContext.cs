@@ -23,20 +23,25 @@ namespace Cocktail.back.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Seed Roles
+            // ================= CONFIGURACIÓN DECIMAL =================
+            modelBuilder.Entity<Product>()
+                .Property(p => p.Precio)
+                .HasPrecision(10, 2); // 10 dígitos total, 2 decimales
+
+            // ================= SEED ROLES =================
             modelBuilder.Entity<Role>().HasData(
                 new Role { IdRol = 1, NombreRol = "Admin" },
                 new Role { IdRol = 2, NombreRol = "Invitado" }
             );
 
-            // Seed Products (Gallery 15 items)
+            // ================= SEED PRODUCTS =================
             modelBuilder.Entity<Product>().HasData(
                 new Product { IdProducto = 1, Nombre = "Granizado de Fresa", Description = "Clásico refrescante de fresas silvestres.", Precio = 12000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ17o_k7g2VYrkVZ_4y8CStSZvMOi45NXFT4A&s" },
                 new Product { IdProducto = 2, Nombre = "Granizado de Limón", Description = "El balance perfecto entre ácido y dulce.", Precio = 10000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSlRLGzL5MU25UJ0N3OSkTRgU2FYs9II_OPvA&s" },
                 new Product { IdProducto = 3, Nombre = "Granizado Maracuyá", Description = "Exótica mezcla de fruta de la pasión.", Precio = 15000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjhWMiciB7c7-idN0aI2gG_54Jaj5lZ9_M3g&s" },
                 new Product { IdProducto = 4, Nombre = "Granizado de Café", Description = "Café premium helado con un toque de crema.", Precio = 18000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQK5CQAxTJrYB8OQ9Z_6dER3lDWQkiPVQCrZA&s" },
                 new Product { IdProducto = 5, Nombre = "Granizado de Mango", Description = "Mango maduro seleccionado para tu paladar.", Precio = 14000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTCLJI-GmPoCPjCuQVrDv3t667Zbg9YG1DoEA&s" },
-                new Product { IdProducto = 6, Nombre = "Granizado  Cereza", Description = "Deliciosa cereza roja cristalizada.", Precio = 13000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQEu6kRhxyoxAui2-9j6BEAvAxd-MbgfyZs4w&s" },
+                new Product { IdProducto = 6, Nombre = "Granizado Cereza", Description = "Deliciosa cereza roja cristalizada.", Precio = 13000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQEu6kRhxyoxAui2-9j6BEAvAxd-MbgfyZs4w&s" },
                 new Product { IdProducto = 7, Nombre = "Granizado Mandarina", Description = "Frescura cítrica natural naranja.", Precio = 12000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSFK_AHSyYjU-oxUY3OsCvXTT6okyTimSu1xw&s" },
                 new Product { IdProducto = 8, Nombre = "Granizado de Coco", Description = "Suave crema de coco tropical blanca.", Precio = 16000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR3H3cvkoyfX0oDBsTnREyBy767x_XAGSdCiw&s" },
                 new Product { IdProducto = 9, Nombre = "Granizado Blue Hawaii", Description = "Sabor a cielo azul y diversión.", Precio = 17000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSZp_E3lcr82xQKw1_xiD-KKrhmceuSqiivUA&s" },
@@ -48,16 +53,17 @@ namespace Cocktail.back.Data
                 new Product { IdProducto = 15, Nombre = "Granizado Rainbow", Description = "Toque de mil colores y saludable.", Precio = 15000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrSdyXSVmTVI9ILfCa1bW5V7CgLOU-im-wOA&s" }
             );
 
-            // Default Admin Seed
+            // ================= ADMIN DEFAULT =================
             modelBuilder.Entity<User>().HasData(
-                new User { 
-                    IdUsuario = 1, 
-                    Nombre = "Cristian", 
-                    Correo = "admin@test.com", 
+                new User
+                {
+                    IdUsuario = 1,
+                    Nombre = "Cristian",
+                    Correo = "admin@test.com",
                     Contrasena = BCrypt.Net.BCrypt.HashPassword("Cristian@019"),
                     IdRol = 1,
                     Estado = true,
-                    ImagenPerfilURL = @"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFKR2kN9cKDOCxsv7O6Mnt6teFUQgwMLV-eQ&s"
+                    ImagenPerfilURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFKR2kN9cKDOCxsv7O6Mnt6teFUQgwMLV-eQ&s"
                 }
             );
         }
