@@ -55,7 +55,7 @@ namespace Cocktail.back.Repositories
         public async Task<Invoice?> GetInvoiceByIdAsync(int invoiceId)
         {
             return await _context.Invoices
-                .Include(i => i.Order)
+                .Include(i => i.Order!)
                 .ThenInclude(o => o.OrderItems)
                 .FirstOrDefaultAsync(i => i.IdInvoice == invoiceId);
         }

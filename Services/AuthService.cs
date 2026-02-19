@@ -93,8 +93,12 @@ namespace Cocktail.back.Services
 
         private string GenerateJwtToken(User user)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var jwtKey = _configuration["Jwt:Key"] ?? "fallback_secret_key_at_least_32_characters_long";
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var issuer = _configuration["Jwt:Issuer"] ?? "http://localhost:5000";
+            var audience = _configuration["Jwt:Audience"] ?? "http://localhost:5173";
 
             var claims = new[]
             {
@@ -104,10 +108,10 @@ namespace Cocktail.back.Services
             };
 
             var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
+                issuer: issuer,
+                audience: audience,
                 claims: claims,
-                expires: DateTime.Now.AddDays(1),
+                expires: DateTime.UtcNow.AddDays(1),
                 signingCredentials: creds
             );
 

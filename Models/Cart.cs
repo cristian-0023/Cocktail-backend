@@ -12,7 +12,7 @@ namespace Cocktail.back.Models
         [Required]
         public int IdUsuario { get; set; }
 
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         public ICollection<CartItem> Items { get; set; } = new List<CartItem>();
     }

@@ -29,6 +29,8 @@ namespace Cocktail.back.Services
             if (cart == null) throw new System.Exception("Could not retrieve or create cart.");
             if (cart.Items == null) cart.Items = new System.Collections.Generic.List<CartItem>();
 
+            if (product == null) throw new System.Exception($"Product with ID {productId} not found.");
+
             var existingItem = cart.Items.FirstOrDefault(i => i.IdProducto == productId);
             if (existingItem != null)
             {
