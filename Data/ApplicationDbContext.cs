@@ -42,28 +42,30 @@ namespace Cocktail.back.Data
             {
                 foreach (var property in entry.Properties)
                 {
-                    if (property.Metadata.ClrType == typeof(DateTime) && property.CurrentValue != null)
+                    if (property.CurrentValue is DateTime dateTime)
                     {
-                        var dateTime = (DateTime)property.CurrentValue;
                         if (dateTime.Kind == DateTimeKind.Local)
                         {
                             property.CurrentValue = dateTime.ToUniversalTime();
+                            Console.WriteLine($"[DbContext] Fixed Local DateTime for {entry.Metadata.Name}.{property.Metadata.Name}");
                         }
                         else if (dateTime.Kind == DateTimeKind.Unspecified)
                         {
                             property.CurrentValue = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+                            Console.WriteLine($"[DbContext] Fixed Unspecified DateTime for {entry.Metadata.Name}.{property.Metadata.Name}");
                         }
                     }
-                    else if (property.Metadata.ClrType == typeof(DateTime?) && property.CurrentValue != null)
+                    else if (property.CurrentValue is DateTime? nullableDateTime && nullableDateTime.HasValue)
                     {
-                        var dateTime = (DateTime)property.CurrentValue;
-                        if (dateTime.Kind == DateTimeKind.Local)
+                        if (nullableDateTime.Value.Kind == DateTimeKind.Local)
                         {
-                            property.CurrentValue = dateTime.ToUniversalTime();
+                            property.CurrentValue = nullableDateTime.Value.ToUniversalTime();
+                            Console.WriteLine($"[DbContext] Fixed Local DateTime? for {entry.Metadata.Name}.{property.Metadata.Name}");
                         }
-                        else if (dateTime.Kind == DateTimeKind.Unspecified)
+                        else if (nullableDateTime.Value.Kind == DateTimeKind.Unspecified)
                         {
-                            property.CurrentValue = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+                            property.CurrentValue = DateTime.SpecifyKind(nullableDateTime.Value, DateTimeKind.Utc);
+                            Console.WriteLine($"[DbContext] Fixed Unspecified DateTime? for {entry.Metadata.Name}.{property.Metadata.Name}");
                         }
                     }
                 }
