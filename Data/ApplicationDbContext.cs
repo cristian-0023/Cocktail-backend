@@ -19,6 +19,57 @@ namespace Cocktail.back.Data
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
 
+        // ================= DATE TIME CONFIG =================
+        // Force UTC for all DateTime properties before saving
+        public override int SaveChanges()
+        {
+            ApplyUtcDateTime();
+            return base.SaveChanges();
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            ApplyUtcDateTime();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void ApplyUtcDateTime()
+        {
+            var entries = ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+            foreach (var entry in entries)
+            {
+                foreach (var property in entry.Properties)
+                {
+                    if (property.Metadata.ClrType == typeof(DateTime) && property.CurrentValue != null)
+                    {
+                        var dateTime = (DateTime)property.CurrentValue;
+                        if (dateTime.Kind == DateTimeKind.Local)
+                        {
+                            property.CurrentValue = dateTime.ToUniversalTime();
+                        }
+                        else if (dateTime.Kind == DateTimeKind.Unspecified)
+                        {
+                            property.CurrentValue = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+                        }
+                    }
+                    else if (property.Metadata.ClrType == typeof(DateTime?) && property.CurrentValue != null)
+                    {
+                        var dateTime = (DateTime)property.CurrentValue;
+                        if (dateTime.Kind == DateTimeKind.Local)
+                        {
+                            property.CurrentValue = dateTime.ToUniversalTime();
+                        }
+                        else if (dateTime.Kind == DateTimeKind.Unspecified)
+                        {
+                            property.CurrentValue = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+                        }
+                    }
+                }
+            }
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

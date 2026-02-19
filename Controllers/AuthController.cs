@@ -21,21 +21,13 @@ namespace Cocktail.back.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
-            try
+            var response = await _authService.LoginAsync(loginDto);
+            if (response == null)
             {
-                var response = await _authService.LoginAsync(loginDto);
-                if (response == null)
-                {
-                    return Unauthorized(new { message = "Credenciales inválidas" });
-                }
+                return Unauthorized("Credenciales inválidas");
+            }
 
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[LOGIN ERROR] {ex.Message} \n {ex.StackTrace}");
-                return StatusCode(500, new { message = "Error interno al procesar login", detail = ex.Message });
-            }
+            return Ok(response);
         }
 
         [HttpPost("register")]

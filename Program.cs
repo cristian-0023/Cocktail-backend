@@ -11,7 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ================== SERVICES ==================
 
-// Forwarded Headers (Render / proxies Linux)
+// Forwarded Headers (Railway / proxies Linux)
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =
@@ -34,49 +34,66 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ================== DATABASE (Render Compatible) ==================
-// 1. Obtener DATABASE_URL (Render usa esta variable por defecto)
-var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-var connectionString = "";
-var databaseProvider = "SqlServer"; // Default fallback
+// ================== DATABASE ==================
+// 1. Detección agresiva y sensible a mayúsculas/minúsculas de DATABASE_URL
+var envVars = Environment.GetEnvironmentVariables();
+string? rawDatabaseUrl = null;
 
-Console.WriteLine($"--- DATABASE CONFIG START ---");
-
-if (!string.IsNullOrEmpty(databaseUrl))
+// Buscamos en orden de prioridad
+string[] searchKeys = { "DATABASE_URL", "database_url", "POSTGRES_URL", "POSTGRESQL_URL" };
+foreach (var key in searchKeys)
 {
-    databaseProvider = "PostgreSQL";
-    Console.WriteLine("Detected DATABASE_URL environment variable.");
-
-    try
+    if (envVars.Contains(key))
     {
-        // Parseo robusto para Render (postgres://user:password@host:port/database)
-        var uri = new Uri(databaseUrl);
-        var userInfoParts = uri.UserInfo.Split(':', 2);
-        var user = Uri.UnescapeDataString(userInfoParts[0]);
-        var password = userInfoParts.Length > 1 ? Uri.UnescapeDataString(userInfoParts[1]) : "";
-        var dbPort = uri.Port > 0 ? uri.Port : 5432;
-        var database = uri.AbsolutePath.Trim('/');
-
-        // Construir connection string de Npgsql con SSL
-        connectionString = $"Host={uri.Host};Port={dbPort};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=True;Pooling=true;";
-        
-        Console.WriteLine($"Successfully parsed DATABASE_URL (Host: {uri.Host}, Port: {dbPort}, DB: {database})");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"CRITICAL ERROR PARSING DATABASE_URL: {ex.Message}");
-        // Fallback: usar el string tal cual por si Npgsql puede manejarlo
-        connectionString = databaseUrl;
+        var val = envVars[key]?.ToString();
+        // Evitamos que use el placeholder literal "${DATABASE_URL}" si viene de un archivo corrupto
+        if (!string.IsNullOrEmpty(val) && !val.Contains("${"))
+        {
+            rawDatabaseUrl = val;
+            break;
+        }
     }
 }
-else
+
+var connectionString = "";
+var databaseProvider = "SqlServer"; // Default
+
+if (!string.IsNullOrEmpty(rawDatabaseUrl))
 {
-    // Fallback: Local development / AppSettings / Variables individuales
-    Console.WriteLine("No DATABASE_URL found. Checking fallback configurations...");
-    
+    databaseProvider = "PostgreSQL";
+    Console.WriteLine($"--- DATABASE CONFIG: Connection source found ({rawDatabaseUrl.Split(':')[0]}://...) ---");
+
+    if (rawDatabaseUrl.Contains("://"))
+    {
+        try 
+        {
+            var uri = new Uri(rawDatabaseUrl);
+            var userInfoParts = uri.UserInfo.Split(':', 2);
+            var user = Uri.UnescapeDataString(userInfoParts[0]);
+            var password = userInfoParts.Length > 1 ? Uri.UnescapeDataString(userInfoParts[1]) : "";
+            var port = uri.Port > 0 ? uri.Port : 5432;
+            var database = uri.AbsolutePath.Trim('/');
+
+            connectionString = $"Host={uri.Host};Port={port};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=True;Pooling=true;";
+            Console.WriteLine("--- Connection successfully parsed from URI ---");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CRITICAL ERROR PARSING URI: {ex.Message}");
+            connectionString = rawDatabaseUrl; // Fallback al original
+        }
+    }
+    else
+    {
+        connectionString = rawDatabaseUrl;
+    }
+}
+else 
+{
+    // Fallback: Variables individuales o AppSettings
     var pgHost = Environment.GetEnvironmentVariable("PGHOST") ?? Environment.GetEnvironmentVariable("POSTGRES_HOST");
     var pgDb = Environment.GetEnvironmentVariable("PGDATABASE") ?? Environment.GetEnvironmentVariable("POSTGRES_DB");
-
+    
     if (!string.IsNullOrEmpty(pgHost) && !string.IsNullOrEmpty(pgDb))
     {
         databaseProvider = "PostgreSQL";
@@ -85,43 +102,46 @@ else
         var pgPort = Environment.GetEnvironmentVariable("PGPORT") ?? "5432";
 
         connectionString = $"Host={pgHost};Port={pgPort};Database={pgDb};Username={pgUser};Password={pgPass};SSL Mode=Require;Trust Server Certificate=True;Pooling=true;";
-        Console.WriteLine("Configured from individual PG environment variables.");
+        Console.WriteLine("--- DATABASE CONFIG: Parsed from individual environment variables ---");
     }
-    else
+    else 
     {
-        // Último recurso: appsettings.json (Desarrollo local)
-        connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
-        // Si la connection string de appsettings es para SQLExpress o similar
-        if (connectionString.Contains("Server=") || connectionString.Contains("Data Source="))
+        // Intentamos leer de la configuración (appsettings.json)
+        var configCs = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrEmpty(configCs) && !configCs.Contains("${"))
         {
-            databaseProvider = "SqlServer";
+            connectionString = configCs;
+            databaseProvider = builder.Configuration.GetValue<string>("DatabaseProvider") ?? "SqlServer";
+            Console.WriteLine("--- DATABASE CONFIG: Using configuration file ---");
         }
-        else if (connectionString.Contains("Host="))
+        else 
         {
-             databaseProvider = "PostgreSQL";
+            Console.WriteLine("WARNING: No valid database connection string found!");
         }
-        
-        Console.WriteLine($"Using configuration file connection string (Provider: {databaseProvider})");
     }
 }
 
-// Configurar DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    if (databaseProvider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
+    // Forzamos Npgsql si detectamos parámetros de PostgreSQL o si el string parece ser de Postgres
+    bool isPostgres = databaseProvider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase) || 
+                     (!string.IsNullOrEmpty(connectionString) && (connectionString.Contains("Host=") || connectionString.Contains("postgres")));
+
+    if (isPostgres)
     {
-        // Asegurar SSL para PostgreSQL (Render lo requiere)
+        // Asegurar SSL Mode para Railway/Nube
         if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("SSL Mode="))
         {
-            connectionString += ";SSL Mode=Require;Trust Server Certificate=True;";
+            connectionString = connectionString.TrimEnd(';') + ";SSL Mode=Require;Trust Server Certificate=True;";
         }
+        
         options.UseNpgsql(connectionString);
-        Console.WriteLine("DbContext initialized with **Npgsql** (PostgreSQL)");
+        Console.WriteLine("DbContext initialized with Npgsql provider");
     }
     else
     {
         options.UseSqlServer(connectionString);
-        Console.WriteLine("DbContext initialized with **SqlServer**");
+        Console.WriteLine("DbContext initialized with SqlServer provider");
     }
 });
 
@@ -136,10 +156,10 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-// ================== CORS (Render & Vercel) ==================
+// ================== CORS ==================
 var frontendUrl = builder.Configuration["FRONTEND_URL"];
 var allowedOrigins = new List<string> { 
-    "https://granizados-two.vercel.app", 
+    "https://granizados-two.vercel.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173"
 };
@@ -153,25 +173,21 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
+        policy.WithOrigins(allowedOrigins.ToArray())
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()
+            .SetIsOriginAllowedToAllowWildcardSubdomains();
+            
+        // Fallback dinámico para subdominios de Vercel y localhost
         policy.SetIsOriginAllowed(origin => 
         {
             if (string.IsNullOrEmpty(origin)) return false;
-            try 
-            {
-                var host = new Uri(origin).Host;
-                
-                // Permitir localhost, Vercel, y dominios de Render (*.onrender.com)
-                return host == "localhost" || 
-                       host == "127.0.0.1" || 
-                       host.EndsWith(".vercel.app") ||
-                       host.EndsWith(".onrender.com") ||
-                       allowedOrigins.Contains(origin);
-            }
-            catch { return false; }
-        })
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials();
+            var host = new Uri(origin).Host;
+            return host == "localhost" || 
+                   host == "127.0.0.1" || 
+                   host.EndsWith(".vercel.app");
+        });
     });
 });
 
@@ -191,7 +207,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(
-                    builder.Configuration["Jwt:Key"] ?? "fallback_secret_key_at_least_32_characters_long"
+                    builder.Configuration["Jwt:Key"] ??
+                    "fallback_secret_key_at_least_32_characters_long"
                 )
             )
         };
@@ -200,11 +217,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 var app = builder.Build();
 
 // ================== MIDDLEWARE ==================
+
 app.UseForwardedHeaders();
 
+// CORS antes de auth
 app.UseCors("AllowFrontend");
 
-// Global exception handler
+// Global error handler
 app.Use(async (context, next) =>
 {
     try
@@ -214,82 +233,131 @@ app.Use(async (context, next) =>
     catch (Exception ex)
     {
         Console.WriteLine($"[GLOBAL ERROR] {ex.Message}");
+
         context.Response.StatusCode = 500;
-        await context.Response.WriteAsJsonAsync(new { error = ex.Message });
+        context.Response.ContentType = "application/json";
+
+        var errorMessage = ex.Message;
+        if (ex.InnerException != null) {
+            errorMessage += " | Inner: " + ex.InnerException.Message;
+        }
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            error = "Internal Server Error",
+            message = errorMessage,
+            path = context.Request.Path.Value
+        });
     }
 });
 
+// Swagger
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cocktail API V1");
-    c.RoutePrefix = string.Empty;
+    c.RoutePrefix = string.Empty; // <--- Déjalo vacío
 });
 
 if (!app.Environment.IsProduction())
 {
-    // app.UseHttpsRedirection(); // Se suele activar en local, en Render el balanceador maneja SSL
+    app.UseHttpsRedirection();
 }
-
 app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ================== ROUTES ==================
-app.MapControllers();
-
-app.MapGet("/api/test-db", async (ApplicationDbContext context) =>
+// ================== DIAGNOSTIC ENDPOINT ==================
+app.MapGet("/api/test-db", async (ApplicationDbContext context, IConfiguration config) =>
 {
+    string MaskPassword(string? str)
+    {
+        if (string.IsNullOrEmpty(str)) return "NULL/Empty";
+        if (str.Contains("Password="))
+        {
+            var parts = str.Split(';');
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i].StartsWith("Password=")) parts[i] = "Password=***";
+            }
+            return string.Join(";", parts);
+        }
+        return str;
+    }
+
     try
     {
         var canConnect = await context.Database.CanConnectAsync();
-        return Results.Ok(new { status = "Connected", canConnect, provider = context.Database.ProviderName });
+        var productCount = await context.Products.CountAsync();
+        
+        var availableVariableNames = Environment.GetEnvironmentVariables().Keys
+            .Cast<string>()
+            .OrderBy(k => k)
+            .ToList();
+
+        return Results.Ok(new { 
+            status = "Connected", 
+            canConnect, 
+            productCount,
+            provider = context.Database.ProviderName,
+            attemptedConnectionString = MaskPassword(context.Database.GetDbConnection().ConnectionString),
+            availableVariableNames
+        });
     }
     catch (Exception ex)
     {
-        return Results.Problem(detail: ex.Message, title: "DB Connection Error");
+        var availableVariableNames = Environment.GetEnvironmentVariables().Keys
+            .Cast<string>()
+            .OrderBy(k => k)
+            .ToList();
+
+        return Results.Problem(detail: ex.Message, title: "Database Connection Error", extensions: new Dictionary<string, object?> {
+            { "attemptedConnectionString", MaskPassword(context.Database.GetDbConnection().ConnectionString) },
+            { "availableVariableNames", availableVariableNames }
+        });
     }
 });
 
-// ================== AUTO INIT & FOLDERS ==================
+app.MapControllers();
+
+// ================== AUTO DB INIT ==================
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
+
         context.Database.EnsureCreated();
-        Console.WriteLine("Database initialized/verified.");
+        Console.WriteLine("Database initialized");
+
     }
     catch (Exception ex)
     {
         Console.WriteLine($"DATABASE ERROR: {ex.Message}");
     }
 
-    // Crear carpeta uploads compatible con Linux
+    // Crear carpeta uploads
     try
     {
-        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "products");
+        var uploadsFolder = Path.Combine(
+            Directory.GetCurrentDirectory(),
+            "wwwroot",
+            "uploads",
+            "products"
+        );
+
         if (!Directory.Exists(uploadsFolder))
         {
             Directory.CreateDirectory(uploadsFolder);
-            Console.WriteLine($"Created uploads folder at: {uploadsFolder}");
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"UPLOAD FOLDER ERROR: {ex.Message}");
+        Console.WriteLine($"UPLOAD ERROR: {ex.Message}");
     }
 }
-
-// ================== PORT BINDING (Render) ==================
-// ================== PORT BINDING (Render) ==================
-// Render inyecta la variable PORT. Si no existe, usamos 8080 o 5000.
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-Console.WriteLine($"Starting application on port {port}...");
-
-// IMPORTANTE: Para Render, usar Urls.Add antes de Run()
-app.Urls.Add($"http://0.0.0.0:{port}");
 
 app.Run();

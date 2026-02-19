@@ -97,9 +97,6 @@ namespace Cocktail.back.Services
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var issuer = _configuration["Jwt:Issuer"] ?? "http://localhost:5000";
-            var audience = _configuration["Jwt:Audience"] ?? "http://localhost:5173";
-
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Correo),
@@ -108,8 +105,8 @@ namespace Cocktail.back.Services
             };
 
             var token = new JwtSecurityToken(
-                issuer: issuer,
-                audience: audience,
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
                 claims: claims,
                 expires: DateTime.UtcNow.AddDays(1),
                 signingCredentials: creds
