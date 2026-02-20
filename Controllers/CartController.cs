@@ -35,9 +35,10 @@ namespace Cocktail.back.Controllers
         [HttpGet]
         public async Task<IActionResult> GetCart()
         {
+            int userId = 0;
             try 
             {
-                var userId = GetUserId();
+                userId = GetUserId();
                 if (userId <= 0) 
                 {
                     Console.WriteLine("[CART ERROR] Intento de acceso sin ID de usuario válido.");
@@ -57,12 +58,14 @@ namespace Cocktail.back.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error en GetCart: {ex.Message}");
+                Console.WriteLine($"[CART ERROR] GetCart Error: {ex.Message}");
                 if (ex.InnerException != null) Console.WriteLine($"Inner: {ex.InnerException.Message}");
+                if (ex.StackTrace != null) Console.WriteLine($"Stack: {ex.StackTrace}");
                 
                 return StatusCode(500, new { 
                     error = "Ocurrió un error al obtener el carrito.",
-                    details = ex.Message 
+                    details = ex.Message,
+                    inner = ex.InnerException?.Message
                 });
             }
         }
@@ -83,9 +86,10 @@ namespace Cocktail.back.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[CART ERROR] AddToCart: {ex.Message}");
+                Console.WriteLine($"[CART ERROR] AddToCart Exception: {ex.Message}");
                 if (ex.InnerException != null) Console.WriteLine($"Inner: {ex.InnerException.Message}");
-                return StatusCode(500, new { error = "No se pudo agregar al carrito.", details = ex.Message });
+                if (ex.StackTrace != null) Console.WriteLine($"Stack: {ex.StackTrace}");
+                return StatusCode(500, new { error = "No se pudo agregar al carrito.", details = ex.Message, inner = ex.InnerException?.Message });
             }
         }
 

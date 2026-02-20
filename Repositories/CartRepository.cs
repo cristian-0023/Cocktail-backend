@@ -25,7 +25,14 @@ namespace Cocktail.back.Repositories
 
         public async Task<Cart> SaveAsync(Cart cart)
         {
-            _context.Carts.Update(cart);
+            if (cart.IdCarrito == 0)
+            {
+                _context.Carts.Add(cart);
+            }
+            else
+            {
+                _context.Carts.Update(cart);
+            }
             await _context.SaveChangesAsync();
             return cart;
         }
