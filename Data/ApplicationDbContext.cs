@@ -81,7 +81,7 @@ namespace Cocktail.back.Data
 
             // 1. UTC Logic for Npgsql (Modern approach for 8.0+)
             // Usamos tipos nativos "timestamp with time zone"
-            // Npgsql 6.0+ mapea automáticamente estos tipos a DateTime con Kind=Utc al leer.
+            // Agregamos ValueConverters para asegurar que EF siempre trate los DateTime como UTC
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 foreach (var property in entityType.GetProperties())
@@ -89,6 +89,11 @@ namespace Cocktail.back.Data
                     if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
                     {
                         property.SetColumnType("timestamp with time zone");
+
+                        property.SetValueConverter(new ValueConverter<DateTime, DateTime>(
+                            v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
+                            v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                        ));
                     }
                 }
             }
