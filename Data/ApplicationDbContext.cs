@@ -40,10 +40,9 @@ namespace Cocktail.back.Data
 
         private void EnforceUtcOnTrackedEntities()
         {
-            var entries = ChangeTracker.Entries()
-                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
-
-            foreach (var entry in entries)
+            // Interceptamos absolutamente todas las entidades rastreadas (Added, Modified, Unchanged)
+            // Unchanged se incluye por si acaso una entidad leída se envía de vuelta sin cambios pero con Kind incorrecto
+            foreach (var entry in ChangeTracker.Entries())
             {
                 foreach (var property in entry.Properties)
                 {
@@ -69,30 +68,41 @@ namespace Cocktail.back.Data
             }
         }
 
+        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+        {
+            // Este es el método más robusto en EF Core 7/8/9 para manejo global de tipos
+            configurationBuilder.Properties<DateTime>().HaveConversion<DateTimeToUtcConverter>();
+            configurationBuilder.Properties<DateTime?>().HaveConversion<NullableDateTimeToUtcConverter>();
+        }
+
+        private class DateTimeToUtcConverter : ValueConverter<DateTime, DateTime>
+        {
+            public DateTimeToUtcConverter() : base(
+                v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
+                v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime())
+            { }
+        }
+
+        private class NullableDateTimeToUtcConverter : ValueConverter<DateTime?, DateTime?>
+        {
+            public NullableDateTimeToUtcConverter() : base(
+                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : v.Value.ToUniversalTime()),
+                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : v.Value.ToUniversalTime()))
+            { }
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. UTC Logic for Npgsql (Triple Layer Protection)
+            // 1. UTC Logic for Npgsql (Consistent column types)
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 foreach (var property in entityType.GetProperties())
                 {
-                    if (property.ClrType == typeof(DateTime))
+                    if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
                     {
                         property.SetColumnType("timestamp with time zone");
-                        property.SetValueConverter(new ValueConverter<DateTime, DateTime>(
-                            v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
-                            v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
-                        ));
-                    }
-                    else if (property.ClrType == typeof(DateTime?))
-                    {
-                        property.SetColumnType("timestamp with time zone");
-                        property.SetValueConverter(new ValueConverter<DateTime?, DateTime?>(
-                            v => v.HasValue ? (v.Value.Kind == DateTimeKind.Utc ? v : v.Value.ToUniversalTime()) : v,
-                            v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v
-                        ));
                     }
                 }
             }

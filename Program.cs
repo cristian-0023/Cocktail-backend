@@ -8,8 +8,9 @@ using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 
 // ================= BLINDAJE UTC ACTIVO =================
-// Npgsql 6.0+ requiere que los DateTime con Kind=Utc se mapeen a 'timestamp with time zone'.
-// Eliminamos el switch de comportamiento legado para forzar el estándar UTC moderno.
+// Forzamos el comportamiento moderno de Npgsql para timestamptz (UTC obligatorio)
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
+AppContext.SetSwitch("Npgsql.DisableDateTimeInfinityConversions", true);
 
 var builder = WebApplication.CreateBuilder(args);
 Console.WriteLine("--- BACKEND STARTING: SECURE MODE ---");
