@@ -48,11 +48,13 @@ namespace Cocktail.back.Data
                 {
                     foreach (var property in entry.Properties)
                     {
-                        if (property.CurrentValue is DateTime value)
+                        if (property.CurrentValue != null && property.CurrentValue.GetType() == typeof(DateTime))
                         {
-                            if (value.Kind != DateTimeKind.Utc)
+                            DateTime dt = (DateTime)property.CurrentValue;
+
+                            if (dt.Kind != DateTimeKind.Utc)
                             {
-                                property.CurrentValue = DateTime.SpecifyKind(value, DateTimeKind.Utc);
+                                property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
                             }
                         }
                     }
