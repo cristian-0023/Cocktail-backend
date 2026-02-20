@@ -48,13 +48,18 @@ namespace Cocktail.back.Data
                 {
                     foreach (var property in entry.Properties)
                     {
-                        if (property.CurrentValue != null && property.CurrentValue.GetType() == typeof(DateTime))
-                        {
-                            DateTime dt = (DateTime)property.CurrentValue;
+                        var clrType = property.Metadata.ClrType;
 
-                            if (dt.Kind != DateTimeKind.Utc)
+                        // Manejo de DateTime (No permitir Kind=Local)
+                        if (clrType == typeof(DateTime) || clrType == typeof(DateTime?))
+                        {
+                            if (property.CurrentValue != null)
                             {
-                                property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                                DateTime dt = (DateTime)property.CurrentValue;
+                                if (dt.Kind != DateTimeKind.Utc)
+                                {
+                                    property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                                }
                             }
                         }
                     }
@@ -66,29 +71,15 @@ namespace Cocktail.back.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. UTC Logic for Npgsql
-            var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
-                v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc),
-                v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
-            );
-
-            var nullableDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
-                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)),
-                v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)
-            );
-
+            // 1. UTC Logic for Npgsql (Modern approach for 8.0+)
+            // Usamos tipos nativos "timestamp with time zone"
+            // Npgsql 6.0+ mapea automáticamente estos tipos a DateTime con Kind=Utc al leer.
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 foreach (var property in entityType.GetProperties())
                 {
-                    if (property.ClrType == typeof(DateTime))
+                    if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
                     {
-                        property.SetValueConverter(dateTimeConverter);
-                        property.SetColumnType("timestamp with time zone");
-                    }
-                    else if (property.ClrType == typeof(DateTime?))
-                    {
-                        property.SetValueConverter(nullableDateTimeConverter);
                         property.SetColumnType("timestamp with time zone");
                     }
                 }

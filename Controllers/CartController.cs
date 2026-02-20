@@ -57,7 +57,7 @@ namespace Cocktail.back.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[CART CRITICAL ERROR] GET /api/Cart: {ex.Message}");
+                Console.WriteLine($"Error en GetCart: {ex.Message}");
                 if (ex.InnerException != null) Console.WriteLine($"Inner: {ex.InnerException.Message}");
                 
                 return StatusCode(500, new { 
