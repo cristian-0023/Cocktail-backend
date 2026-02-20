@@ -40,35 +40,29 @@ namespace Cocktail.back.Data
 
         private void EnforceUtcOnTrackedEntities()
         {
-            foreach (var entry in ChangeTracker.Entries())
+            var entries = ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+            foreach (var entry in entries)
             {
                 foreach (var property in entry.Properties)
                 {
-                    if (property.Metadata.ClrType == typeof(DateTime) && property.CurrentValue != null)
+                    if (property.Metadata.ClrType == typeof(DateTime) && property.CurrentValue is DateTime dt)
                     {
-                        var date = (DateTime)property.CurrentValue;
-
-                        // Forzamos que CUALQUIER DateTime sea tratado como UTC
-                        if (date.Kind == DateTimeKind.Unspecified)
+                        if (dt.Kind != DateTimeKind.Utc)
                         {
-                            property.CurrentValue = DateTime.SpecifyKind(date, DateTimeKind.Utc);
-                        }
-                        else if (date.Kind == DateTimeKind.Local)
-                        {
-                            property.CurrentValue = date.ToUniversalTime();
+                            property.CurrentValue = dt.Kind == DateTimeKind.Local 
+                                ? dt.ToUniversalTime() 
+                                : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
                         }
                     }
-                    else if (property.Metadata.ClrType == typeof(DateTime?) && property.CurrentValue != null)
+                    else if (property.Metadata.ClrType == typeof(DateTime?) && property.CurrentValue is DateTime dtNullable)
                     {
-                        var date = ((DateTime?)property.CurrentValue).Value;
-
-                        if (date.Kind == DateTimeKind.Unspecified)
+                        if (dtNullable.Kind != DateTimeKind.Utc)
                         {
-                            property.CurrentValue = DateTime.SpecifyKind(date, DateTimeKind.Utc);
-                        }
-                        else if (date.Kind == DateTimeKind.Local)
-                        {
-                            property.CurrentValue = date.ToUniversalTime();
+                            property.CurrentValue = dtNullable.Kind == DateTimeKind.Local 
+                                ? dtNullable.ToUniversalTime() 
+                                : DateTime.SpecifyKind(dtNullable, DateTimeKind.Utc);
                         }
                     }
                 }
@@ -79,20 +73,25 @@ namespace Cocktail.back.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. UTC Logic for Npgsql (Modern approach for 8.0+)
-            // Usamos tipos nativos "timestamp with time zone"
-            // Agregamos ValueConverters para asegurar que EF siempre trate los DateTime como UTC
+            // 1. UTC Logic for Npgsql (Robust implementation)
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 foreach (var property in entityType.GetProperties())
                 {
-                    if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
+                    if (property.ClrType == typeof(DateTime))
                     {
                         property.SetColumnType("timestamp with time zone");
-
                         property.SetValueConverter(new ValueConverter<DateTime, DateTime>(
                             v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
                             v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                        ));
+                    }
+                    else if (property.ClrType == typeof(DateTime?))
+                    {
+                        property.SetColumnType("timestamp with time zone");
+                        property.SetValueConverter(new ValueConverter<DateTime?, DateTime?>(
+                            v => v.HasValue ? (v.Value.Kind == DateTimeKind.Utc ? v : v.Value.ToUniversalTime()) : v,
+                            v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v
                         ));
                     }
                 }
