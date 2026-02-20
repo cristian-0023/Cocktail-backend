@@ -255,8 +255,8 @@ app.Use(async (context, next) =>
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cocktail API V1");
-    c.RoutePrefix = string.Empty; // <--- Déjalo vacío
+    c.SwaggerEndpoint("v1/swagger.json", "Cocktail API V1");
+    c.RoutePrefix = "swagger"; // Swagger UI at /swagger
 });
 
 if (!app.Environment.IsProduction())
