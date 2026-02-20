@@ -40,20 +40,21 @@ namespace Cocktail.back.Data
 
         private void EnforceUtcOnTrackedEntities()
         {
-            foreach (var entry in ChangeTracker.Entries())
+            var entries = ChangeTracker.Entries();
+
+            foreach (var entry in entries)
             {
                 if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
                 {
                     foreach (var property in entry.Properties)
                     {
+                        // En C# 8+ pattern matching: 'is DateTime' funciona para DateTime y DateTime? (no nulo)
                         if (property.CurrentValue is DateTime dt)
                         {
-                            // Garantiza que el Kind siempre sea Utc antes de enviar a Postgres
-                            property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
-                        }
-                        else if (property.CurrentValue is DateTime? ndt && ndt.HasValue)
-                        {
-                            property.CurrentValue = DateTime.SpecifyKind(ndt.Value, DateTimeKind.Utc);
+                            if (dt.Kind != DateTimeKind.Utc)
+                            {
+                                property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                            }
                         }
                     }
                 }
@@ -64,49 +65,44 @@ namespace Cocktail.back.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // ================= CONFIGURACIÓN GLOBAL UTC (BLINDAJE TOTAL) =================
-            // Fuerza a que todos los DateTime se guarden como UTC y se lean como UTC
+            // UTC Value Converters for Postgres
+            var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
+                v => v.ToUniversalTime(),
+                v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+            );
+
+            var nullableDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
+                v => v.HasValue ? v.Value.ToUniversalTime() : v,
+                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v
+            );
+
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 foreach (var property in entityType.GetProperties())
                 {
                     if (property.ClrType == typeof(DateTime))
                     {
-                        property.SetValueConverter(
-                            new ValueConverter<DateTime, DateTime>(
-                                v => v.ToUniversalTime(),
-                                v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
-                            )
-                        );
-                        // Asegurar que el tipo en base de datos sea 'timestamp with time zone' (timestamptz)
+                        property.SetValueConverter(dateTimeConverter);
                         property.SetColumnType("timestamp with time zone");
                     }
                     else if (property.ClrType == typeof(DateTime?))
                     {
-                        property.SetValueConverter(
-                            new ValueConverter<DateTime?, DateTime?>(
-                                v => !v.HasValue ? v : v.Value.ToUniversalTime(),
-                                v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)
-                            )
-                        );
-                        // Asegurar que el tipo en base de datos sea 'timestamp with time zone' (timestamptz)
+                        property.SetValueConverter(nullableDateTimeConverter);
                         property.SetColumnType("timestamp with time zone");
                     }
                 }
             }
 
-            // ================= CONFIGURACIÓN DECIMAL =================
-            modelBuilder.Entity<Product>()
-                .Property(p => p.Precio)
-                .HasPrecision(10, 2); // 10 dígitos total, 2 decimales
+            // Decimal Precision
+            modelBuilder.Entity<Product>().Property(p => p.Precio).HasPrecision(10, 2);
 
-            // ================= SEED ROLES =================
+            // Seed Roles
             modelBuilder.Entity<Role>().HasData(
                 new Role { IdRol = 1, NombreRol = "Admin" },
                 new Role { IdRol = 2, NombreRol = "Invitado" }
             );
 
-            // ================= SEED PRODUCTS =================
+            // Seed Products
             modelBuilder.Entity<Product>().HasData(
                 new Product { IdProducto = 1, Nombre = "Granizado de Fresa", Description = "Clásico refrescante de fresas silvestres.", Precio = 12000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ17o_k7g2VYrkVZ_4y8CStSZvMOi45NXFT4A&s" },
                 new Product { IdProducto = 2, Nombre = "Granizado de Limón", Description = "El balance perfecto entre ácido y dulce.", Precio = 10000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSlRLGzL5MU25UJ0N3OSkTRgU2FYs9II_OPvA&s" },
@@ -125,7 +121,7 @@ namespace Cocktail.back.Data
                 new Product { IdProducto = 15, Nombre = "Granizado Rainbow", Description = "Toque de mil colores y saludable.", Precio = 15000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrSdyXSVmTVI9ILfCa1bW5V7CgLOU-im-wOA&s" }
             );
 
-            // ================= ADMIN DEFAULT =================
+            // Seed Admin
             modelBuilder.Entity<User>().HasData(
                 new User
                 {
