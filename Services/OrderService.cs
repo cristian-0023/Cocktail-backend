@@ -32,7 +32,7 @@ namespace Cocktail.back.Services
             var order = new Order
             {
                 IdUsuario = userId,
-                OrderDate = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
                 TotalAmount = cart.Items.Sum(i => i.Quantity * i.UnitPrice),
                 PaymentStatus = "Paid", // Simulated payment
                 OrderItems = cart.Items.Select(i => new OrderItem
@@ -49,7 +49,7 @@ namespace Cocktail.back.Services
             var invoice = new Invoice
             {
                 IdOrder = createdOrder.IdOrder,
-                InvoiceDate = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
                 CustomerName = user.Nombre,
                 TotalAmount = createdOrder.TotalAmount
             };

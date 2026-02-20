@@ -13,7 +13,7 @@ namespace Cocktail.back.Models
         [Required]
         public int IdUsuario { get; set; }
 
-        public DateTime OrderDate { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalAmount { get; set; }

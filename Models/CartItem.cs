@@ -24,6 +24,6 @@ namespace Cocktail.back.Models
 
         [ForeignKey("IdProducto")]
         public Product? Product { get; set; }
-        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

@@ -15,25 +15,12 @@ namespace Cocktail.back.Repositories
             _context = context;
         }
 
-        public async Task<Cart> GetByUserIdAsync(int userId)
+        public async Task<Cart?> GetByUserIdAsync(int userId)
         {
-            var cart = await _context.Carts
+            return await _context.Carts
                 .Include(c => c.Items)
                 .ThenInclude(i => i.Product)
                 .FirstOrDefaultAsync(c => c.IdUsuario == userId);
-
-            if (cart == null)
-            {
-                cart = new Cart 
-                { 
-                    IdUsuario = userId,
-                    CreatedDate = DateTime.UtcNow // UTC Blindado total
-                };
-                _context.Carts.Add(cart);
-                await _context.SaveChangesAsync();
-            }
-
-            return cart;
         }
 
         public async Task<Cart> SaveAsync(Cart cart)

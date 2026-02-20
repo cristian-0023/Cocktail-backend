@@ -18,7 +18,13 @@ namespace Cocktail.back.Services
 
         public async Task<Cart> GetCartByUserIdAsync(int userId)
         {
-            return await _cartRepository.GetByUserIdAsync(userId);
+            var cart = await _cartRepository.GetByUserIdAsync(userId);
+            if (cart == null)
+            {
+                // Return a transient cart for READ ONLY (no SaveChanges here)
+                return new Cart { IdUsuario = userId, Items = new System.Collections.Generic.List<CartItem>() };
+            }
+            return cart;
         }
 
         public async Task<Cart> AddToCartAsync(int userId, int productId, int quantity)
@@ -26,10 +32,12 @@ namespace Cocktail.back.Services
             var cart = await _cartRepository.GetByUserIdAsync(userId);
             var product = await _productRepository.GetByIdAsync(productId);
 
-            if (cart == null) throw new System.Exception("Could not retrieve or create cart.");
-            if (cart.Items == null) cart.Items = new System.Collections.Generic.List<CartItem>();
-
             if (product == null) throw new System.Exception($"Product with ID {productId} not found.");
+
+            if (cart == null) 
+            {
+                cart = new Cart { IdUsuario = userId, Items = new System.Collections.Generic.List<CartItem>() };
+            }
 
             var existingItem = cart.Items.FirstOrDefault(i => i.IdProducto == productId);
             if (existingItem != null)

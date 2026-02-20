@@ -1,4 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Cocktail.back.Models;
 using BCrypt.Net;
@@ -19,6 +25,39 @@ namespace Cocktail.back.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
+
+        public override int SaveChanges()
+        {
+            EnforceUtcOnTrackedEntities();
+            return base.SaveChanges();
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            EnforceUtcOnTrackedEntities();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void EnforceUtcOnTrackedEntities()
+        {
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+                {
+                    foreach (var property in entry.Properties)
+                    {
+                        if (property.CurrentValue is DateTime dt)
+                        {
+                            property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                        }
+                        else if (property.CurrentValue is DateTime? ndt && ndt.HasValue)
+                        {
+                            property.CurrentValue = DateTime.SpecifyKind(ndt.Value, DateTimeKind.Utc);
+                        }
+                    }
+                }
+            }
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
