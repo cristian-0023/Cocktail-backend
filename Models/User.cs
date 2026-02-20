@@ -26,7 +26,7 @@ namespace Cocktail.back.Models
         public Role? Rol { get; set; }
 
         public bool Estado { get; set; } = true;
-
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
         public string? ImagenPerfilURL { get; set; } = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
     }
 }

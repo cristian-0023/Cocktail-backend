@@ -27,7 +27,7 @@ namespace Cocktail.back.Repositories
                 cart = new Cart 
                 { 
                     IdUsuario = userId,
-                    CreatedDate = System.DateTime.UtcNow // UTC Garantizado
+                    CreatedDate = DateTime.UtcNow // UTC Blindado total
                 };
                 _context.Carts.Add(cart);
                 await _context.SaveChangesAsync();

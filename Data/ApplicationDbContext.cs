@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Cocktail.back.Models;
 using BCrypt.Net;
 
@@ -19,18 +20,6 @@ namespace Cocktail.back.Data
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
 
-        // ================= DATE TIME CONFIG =================
-        // Force UTC for all DateTime properties before saving
-        public override int SaveChanges()
-        {
-            return base.SaveChanges();
-        }
-
-        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-        {
-            return base.SaveChangesAsync(cancellationToken);
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -44,23 +33,23 @@ namespace Cocktail.back.Data
                     if (property.ClrType == typeof(DateTime))
                     {
                         property.SetValueConverter(
-                            new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+                            new ValueConverter<DateTime, DateTime>(
                                 v => v.ToUniversalTime(),
                                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
                             )
                         );
-                        // Asegurar que el tipo en base de datos sea 'timestamp with time zone'
+                        // Asegurar que el tipo en base de datos sea 'timestamp with time zone' (timestamptz)
                         property.SetColumnType("timestamp with time zone");
                     }
                     else if (property.ClrType == typeof(DateTime?))
                     {
                         property.SetValueConverter(
-                            new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime?, DateTime?>(
+                            new ValueConverter<DateTime?, DateTime?>(
                                 v => !v.HasValue ? v : v.Value.ToUniversalTime(),
                                 v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)
                             )
                         );
-                        // Asegurar que el tipo en base de datos sea 'timestamp with time zone'
+                        // Asegurar que el tipo en base de datos sea 'timestamp with time zone' (timestamptz)
                         property.SetColumnType("timestamp with time zone");
                     }
                 }
