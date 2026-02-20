@@ -17,14 +17,14 @@ namespace Cocktail.back.Data
         {
         }
 
-        public DbSet<User> Users { get; set; }
-        public DbSet<Role> Roles { get; set; }
-        public DbSet<Product> Products { get; set; }
-        public DbSet<Cart> Carts { get; set; }
-        public DbSet<CartItem> CartItems { get; set; }
-        public DbSet<Order> Orders { get; set; }
-        public DbSet<OrderItem> OrderItems { get; set; }
-        public DbSet<Invoice> Invoices { get; set; }
+        public DbSet<User> Users { get; set; } = null!;
+        public DbSet<Role> Roles { get; set; } = null!;
+        public DbSet<Product> Products { get; set; } = null!;
+        public DbSet<Cart> Carts { get; set; } = null!;
+        public DbSet<CartItem> CartItems { get; set; } = null!;
+        public DbSet<Order> Orders { get; set; } = null!;
+        public DbSet<OrderItem> OrderItems { get; set; } = null!;
+        public DbSet<Invoice> Invoices { get; set; } = null!;
 
         public override int SaveChanges()
         {
@@ -48,12 +48,11 @@ namespace Cocktail.back.Data
                 {
                     foreach (var property in entry.Properties)
                     {
-                        // En C# 8+ pattern matching: 'is DateTime' funciona para DateTime y DateTime? (no nulo)
-                        if (property.CurrentValue is DateTime dt)
+                        if (property.CurrentValue is DateTime value)
                         {
-                            if (dt.Kind != DateTimeKind.Utc)
+                            if (value.Kind != DateTimeKind.Utc)
                             {
-                                property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                                property.CurrentValue = DateTime.SpecifyKind(value, DateTimeKind.Utc);
                             }
                         }
                     }
@@ -65,7 +64,7 @@ namespace Cocktail.back.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // UTC Value Converters for Postgres (Garantía absoluta de Kind=Utc)
+            // 1. UTC Logic for Npgsql
             var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
                 v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc),
                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
@@ -93,16 +92,33 @@ namespace Cocktail.back.Data
                 }
             }
 
-            // Decimal Precision
+            // 2. Decimal Precision
             modelBuilder.Entity<Product>().Property(p => p.Precio).HasPrecision(10, 2);
+            modelBuilder.Entity<CartItem>().Property(i => i.UnitPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<OrderItem>().Property(i => i.UnitPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<Order>().Property(o => o.TotalAmount).HasPrecision(18, 2);
+            modelBuilder.Entity<Invoice>().Property(i => i.TotalAmount).HasPrecision(18, 2);
 
-            // Seed Roles
+            // 3. Relationships & Keys (Defense in Depth)
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Rol)
+                .WithMany()
+                .HasForeignKey(u => u.IdRol)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<CartItem>()
+                .HasOne(ci => ci.Product)
+                .WithMany()
+                .HasForeignKey(ci => ci.IdProducto);
+
+            // 4. Seeding Data
+            // Roles
             modelBuilder.Entity<Role>().HasData(
                 new Role { IdRol = 1, NombreRol = "Admin" },
                 new Role { IdRol = 2, NombreRol = "Invitado" }
             );
 
-            // Seed Products
+            // Products (15 Items)
             modelBuilder.Entity<Product>().HasData(
                 new Product { IdProducto = 1, Nombre = "Granizado de Fresa", Description = "Clásico refrescante de fresas silvestres.", Precio = 12000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ17o_k7g2VYrkVZ_4y8CStSZvMOi45NXFT4A&s" },
                 new Product { IdProducto = 2, Nombre = "Granizado de Limón", Description = "El balance perfecto entre ácido y dulce.", Precio = 10000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSlRLGzL5MU25UJ0N3OSkTRgU2FYs9II_OPvA&s" },
@@ -121,14 +137,17 @@ namespace Cocktail.back.Data
                 new Product { IdProducto = 15, Nombre = "Granizado Rainbow", Description = "Toque de mil colores y saludable.", Precio = 15000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrSdyXSVmTVI9ILfCa1bW5V7CgLOU-im-wOA&s" }
             );
 
-            // Seed Admin
+            // Admin User (Stable Hash to avoid migration flapping)
+            // Password: "Cristian@019"
+            string stableHash = "$2a$11$Xm77ZfGz/4r.Y1D2oB7Q/ueo.D0Gz.yJ6W.Vv2o.P6iMhO7L6J9XyG"; 
+            
             modelBuilder.Entity<User>().HasData(
                 new User
                 {
                     IdUsuario = 1,
                     Nombre = "Cristian",
                     Correo = "admin@test.com",
-                    Contrasena = BCrypt.Net.BCrypt.HashPassword("Cristian@019"),
+                    Contrasena = stableHash,
                     IdRol = 1,
                     Estado = true,
                     ImagenPerfilURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFKR2kN9cKDOCxsv7O6Mnt6teFUQgwMLV-eQ&s"
