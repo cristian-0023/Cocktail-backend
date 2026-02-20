@@ -87,22 +87,14 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-// 4. CORS
+// 4. CORS (Allow all for testing as requested)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://granizados-two.vercel.app", "http://localhost:5173", "http://127.0.0.1:5173")
+        policy.AllowAnyOrigin()
             .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-            
-        policy.SetIsOriginAllowed(origin => 
-        {
-            if (string.IsNullOrEmpty(origin)) return false;
-            var host = new Uri(origin).Host;
-            return host == "localhost" || host == "127.0.0.1" || host.EndsWith(".vercel.app");
-        });
+            .AllowAnyMethod();
     });
 });
 
