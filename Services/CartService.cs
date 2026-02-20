@@ -51,7 +51,8 @@ namespace Cocktail.back.Services
                     IdCarrito = cart.IdCarrito,
                     IdProducto = productId,
                     Quantity = quantity,
-                    UnitPrice = product.Precio
+                    UnitPrice = product.Precio,
+                    CreatedDate = DateTime.UtcNow
                 });
             }
 

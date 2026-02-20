@@ -73,7 +73,7 @@ namespace Cocktail.back.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. UTC Logic for Npgsql (Robust implementation)
+            // 1. UTC Logic for Npgsql (Triple Layer Protection)
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 foreach (var property in entityType.GetProperties())
