@@ -8,7 +8,8 @@ using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 
 // ================= BLINDAJE UTC ACTIVO =================
-// Se maneja vía ApplicationDbContext ValueConverters para máxima compatibilidad con Npgsql
+// Se maneja vía ApplicationDbContext y un switch global para Npgsql
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 Console.WriteLine("--- BACKEND STARTING: UTC BLINDADO ---");

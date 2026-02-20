@@ -65,15 +65,15 @@ namespace Cocktail.back.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // UTC Value Converters for Postgres
+            // UTC Value Converters for Postgres (Garantía absoluta de Kind=Utc)
             var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
-                v => v.ToUniversalTime(),
+                v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc),
                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
             );
 
             var nullableDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
-                v => v.HasValue ? v.Value.ToUniversalTime() : v,
-                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v
+                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)),
+                v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)
             );
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
