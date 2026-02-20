@@ -24,7 +24,11 @@ namespace Cocktail.back.Repositories
 
             if (cart == null)
             {
-                cart = new Cart { IdUsuario = userId };
+                cart = new Cart 
+                { 
+                    IdUsuario = userId,
+                    CreatedDate = System.DateTime.UtcNow // Blindaje explícito V5
+                };
                 _context.Carts.Add(cart);
                 await _context.SaveChangesAsync();
             }
