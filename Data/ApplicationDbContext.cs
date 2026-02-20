@@ -23,80 +23,45 @@ namespace Cocktail.back.Data
         // Force UTC for all DateTime properties before saving
         public override int SaveChanges()
         {
-            ApplyUtcDateTime();
             return base.SaveChanges();
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            ApplyUtcDateTime();
             return base.SaveChangesAsync(cancellationToken);
-        }
-
-        private void ApplyUtcDateTime()
-        {
-            var entries = ChangeTracker.Entries()
-                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
-
-            foreach (var entry in entries)
-            {
-                foreach (var property in entry.Properties)
-                {
-                    if (property.CurrentValue is DateTime dateTime)
-                    {
-                        if (dateTime.Kind == DateTimeKind.Local)
-                        {
-                            property.CurrentValue = dateTime.ToUniversalTime();
-                            Console.WriteLine($"[DbContext] Fixed Local DateTime for {entry.Metadata.Name}.{property.Metadata.Name}");
-                        }
-                        else if (dateTime.Kind == DateTimeKind.Unspecified)
-                        {
-                            property.CurrentValue = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
-                            Console.WriteLine($"[DbContext] Fixed Unspecified DateTime for {entry.Metadata.Name}.{property.Metadata.Name}");
-                        }
-                    }
-                    else if (property.CurrentValue is DateTime? nullableDateTime && nullableDateTime.HasValue)
-                    {
-                        if (nullableDateTime.Value.Kind == DateTimeKind.Local)
-                        {
-                            property.CurrentValue = nullableDateTime.Value.ToUniversalTime();
-                            Console.WriteLine($"[DbContext] Fixed Local DateTime? for {entry.Metadata.Name}.{property.Metadata.Name}");
-                        }
-                        else if (nullableDateTime.Value.Kind == DateTimeKind.Unspecified)
-                        {
-                            property.CurrentValue = DateTime.SpecifyKind(nullableDateTime.Value, DateTimeKind.Utc);
-                            Console.WriteLine($"[DbContext] Fixed Unspecified DateTime? for {entry.Metadata.Name}.{property.Metadata.Name}");
-                        }
-                    }
-                }
-            }
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // ================= CONFIGURACIÓN GLOBAL UTC =================
-            // Esto asegura que CUALQUIER DateTime sea tratado como UTC por Npgsql
-            var dateTimeConverter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
-                v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
-                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
-
-            var nullableDateTimeConverter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime?, DateTime?>(
-                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : v.Value.ToUniversalTime()),
-                v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc));
-
+            // ================= CONFIGURACIÓN GLOBAL UTC (BLINDAJE TOTAL) =================
+            // Fuerza a que todos los DateTime se guarden como UTC y se lean como UTC
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 foreach (var property in entityType.GetProperties())
                 {
                     if (property.ClrType == typeof(DateTime))
                     {
-                        property.SetValueConverter(dateTimeConverter);
+                        property.SetValueConverter(
+                            new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+                                v => v.ToUniversalTime(),
+                                v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                            )
+                        );
+                        // Asegurar que el tipo en base de datos sea 'timestamp with time zone'
+                        property.SetColumnType("timestamp with time zone");
                     }
                     else if (property.ClrType == typeof(DateTime?))
                     {
-                        property.SetValueConverter(nullableDateTimeConverter);
+                        property.SetValueConverter(
+                            new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime?, DateTime?>(
+                                v => !v.HasValue ? v : v.Value.ToUniversalTime(),
+                                v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)
+                            )
+                        );
+                        // Asegurar que el tipo en base de datos sea 'timestamp with time zone'
+                        property.SetColumnType("timestamp with time zone");
                     }
                 }
             }

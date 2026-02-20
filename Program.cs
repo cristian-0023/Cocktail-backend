@@ -7,12 +7,11 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 
-// ================= Npgsql 6.0+ Global Fix (V5 - BLINDAJE TOTAL) =================
-// Habilitar el comportamiento legado de timestamp para evitar errores de Kind=Local en PostgreSQL
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+// ================= BLINDAJE UTC ACTIVO =================
+// Se maneja vía ApplicationDbContext ValueConverters para máxima compatibilidad con Npgsql
 
 var builder = WebApplication.CreateBuilder(args);
-Console.WriteLine("--- BACKEND STARTING: V5 ULTRA-ROBUST UTC ACTIVE ---");
+Console.WriteLine("--- BACKEND STARTING: UTC BLINDADO ---");
 
 // ================== SERVICES ==================
 
