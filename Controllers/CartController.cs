@@ -21,16 +21,12 @@ namespace Cocktail.back.Controllers
 
         private int GetUserId()
         {
-            var userIdClaim = User.FindFirst("userId");
-            if (userIdClaim == null) 
-            {
-                 // Try NameIdentifier as fallback for compatibility
-                 userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            }
-
+            // Intentamos obtener el ID desde NameIdentifier (Estándar) o userId (Personalizado)
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("userId");
+            
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int id)) 
             {
-                 Console.WriteLine($"Warning: Valid userId claim not found in token. Value: {userIdClaim?.Value}");
+                 Console.WriteLine($"[CART ERROR] No se encontró un claim de ID válido en el token.");
                  return 0;
             }
             return id;
@@ -42,15 +38,32 @@ namespace Cocktail.back.Controllers
             try 
             {
                 var userId = GetUserId();
-                if (userId == 0) return Unauthorized("No se pudo identificar al usuario.");
+                if (userId <= 0) 
+                {
+                    Console.WriteLine("[CART ERROR] Intento de acceso sin ID de usuario válido.");
+                    return Unauthorized(new { message = "Sesión inválida o expirada." });
+                }
                 
                 var cart = await _cartService.GetCartByUserIdAsync(userId);
+                
+                // Si por alguna razón el servicio devolviera null (no debería pasar con el repo actual),
+                // manejamos graciosamente en lugar de que rompa el JSON serializer o el frontend
+                if (cart == null)
+                {
+                    return Ok(new { idCarrito = 0, idUsuario = userId, items = new Array[] { } });
+                }
+
                 return Ok(cart);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error en GetCart: {ex.Message}");
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                Console.WriteLine($"[CART CRITICAL ERROR] GET /api/Cart: {ex.Message}");
+                if (ex.InnerException != null) Console.WriteLine($"Inner: {ex.InnerException.Message}");
+                
+                return StatusCode(500, new { 
+                    error = "Ocurrió un error al obtener el carrito.",
+                    details = ex.Message 
+                });
             }
         }
 

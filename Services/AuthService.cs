@@ -100,7 +100,8 @@ namespace Cocktail.back.Services
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Correo),
-                new Claim("userId", user.IdUsuario.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.IdUsuario.ToString()), // Estándar de .NET
+                new Claim("userId", user.IdUsuario.ToString()), // Retrocompatibilidad
                 new Claim(ClaimTypes.Role, user.Rol?.NombreRol ?? "Invitado")
             };
 

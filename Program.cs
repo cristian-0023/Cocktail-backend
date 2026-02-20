@@ -330,8 +330,10 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
 
-        context.Database.EnsureCreated();
-        Console.WriteLine("Database initialized");
+        // Usamos Migrate() en lugar de EnsureCreated() para producción
+        // Esto asegura que se apliquen todas las migraciones pendientes en PostgreSQL
+        context.Database.Migrate();
+        Console.WriteLine("Database migrations applied successfully");
 
     }
     catch (Exception ex)
