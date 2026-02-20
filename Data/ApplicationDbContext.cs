@@ -78,16 +78,16 @@ namespace Cocktail.back.Data
         private class DateTimeToUtcConverter : ValueConverter<DateTime, DateTime>
         {
             public DateTimeToUtcConverter() : base(
-                v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
-                v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime())
+                v => v.Kind == DateTimeKind.Utc ? v : (v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : DateTime.SpecifyKind(v, DateTimeKind.Utc)),
+                v => DateTime.SpecifyKind(v, DateTimeKind.Utc))
             { }
         }
 
         private class NullableDateTimeToUtcConverter : ValueConverter<DateTime?, DateTime?>
         {
             public NullableDateTimeToUtcConverter() : base(
-                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : v.Value.ToUniversalTime()),
-                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : v.Value.ToUniversalTime()))
+                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : (v.Value.Kind == DateTimeKind.Local ? v.Value.ToUniversalTime() : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc))),
+                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v)
             { }
         }
 

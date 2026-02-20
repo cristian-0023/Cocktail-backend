@@ -7,9 +7,10 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 
-// ================= BLINDAJE UTC ACTIVO =================
-// Forzamos el comportamiento moderno de Npgsql para timestamptz (UTC obligatorio)
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
+// ================= BLINDAJE UTC ACTIVO V3 (MODO SEGURIDAD) =================
+// Habilitamos el comportamiento legado como SALVAGUARDA FINAL.
+// Esto permite que el driver maneje local times convirtiéndolos a UTC en lugar de crashear.
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 AppContext.SetSwitch("Npgsql.DisableDateTimeInfinityConversions", true);
 
 var builder = WebApplication.CreateBuilder(args);
