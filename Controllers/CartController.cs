@@ -50,7 +50,7 @@ namespace Cocktail.back.Controllers
                 // manejamos graciosamente en lugar de que rompa el JSON serializer o el frontend
                 if (cart == null)
                 {
-                    return Ok(new { idCarrito = 0, idUsuario = userId, items = new Array[] { } });
+                    return Ok(new { idCarrito = 0, idUsuario = userId, items = new object[0] });
                 }
 
                 return Ok(cart);
@@ -83,8 +83,9 @@ namespace Cocktail.back.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error en AddToCart: {ex.Message}");
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                Console.WriteLine($"[CART ERROR] AddToCart: {ex.Message}");
+                if (ex.InnerException != null) Console.WriteLine($"Inner: {ex.InnerException.Message}");
+                return StatusCode(500, new { error = "No se pudo agregar al carrito.", details = ex.Message });
             }
         }
 

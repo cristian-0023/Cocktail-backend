@@ -330,10 +330,10 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
 
-        // Usamos Migrate() en lugar de EnsureCreated() para producción
-        // Esto asegura que se apliquen todas las migraciones pendientes en PostgreSQL
-        context.Database.Migrate();
-        Console.WriteLine("Database migrations applied successfully");
+        // Forzamos creación del esquema si no existe (EnsureCreated)
+        // Ya que el proyecto no cuenta actualmente con una carpeta de Migrations instalada.
+        context.Database.EnsureCreated();
+        Console.WriteLine("Database schema verified/created via EnsureCreated");
 
     }
     catch (Exception ex)
