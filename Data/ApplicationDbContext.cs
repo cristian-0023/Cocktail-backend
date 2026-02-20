@@ -32,36 +32,26 @@ namespace Cocktail.back.Data
             return base.SaveChanges();
         }
 
-        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             EnforceUtcOnTrackedEntities();
-            return base.SaveChangesAsync(cancellationToken);
+            return await base.SaveChangesAsync(cancellationToken);
         }
 
         private void EnforceUtcOnTrackedEntities()
         {
-            var entries = ChangeTracker.Entries();
-
-            foreach (var entry in entries)
+            foreach (var entry in ChangeTracker.Entries())
             {
-                if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+                foreach (var property in entry.Properties)
                 {
-                    foreach (var property in entry.Properties)
+                    if (property.Metadata.ClrType == typeof(DateTime) && property.CurrentValue != null)
                     {
-                        var clrType = property.Metadata.ClrType;
+                        var date = (DateTime)property.CurrentValue;
 
-                        // Manejo de DateTime (No permitir Kind=Local)
-                        if (clrType == typeof(DateTime) || clrType == typeof(DateTime?))
-                        {
-                            if (property.CurrentValue != null)
-                            {
-                                DateTime dt = (DateTime)property.CurrentValue;
-                                if (dt.Kind != DateTimeKind.Utc)
-                                {
-                                    property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
-                                }
-                            }
-                        }
+                        if (date.Kind == DateTimeKind.Unspecified)
+                            property.CurrentValue = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                        else if (date.Kind == DateTimeKind.Local)
+                            property.CurrentValue = date.ToUniversalTime();
                     }
                 }
             }
