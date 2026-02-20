@@ -48,17 +48,27 @@ namespace Cocktail.back.Data
                     {
                         var date = (DateTime)property.CurrentValue;
 
-                        // Salvaguarda específica para CreatedDate garantizando UTC
-                        if (property.Metadata.Name == "CreatedDate")
+                        // Forzamos que CUALQUIER DateTime sea tratado como UTC
+                        if (date.Kind == DateTimeKind.Unspecified)
                         {
-                            entry.CurrentValues[property.Metadata.Name] = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                            property.CurrentValue = DateTime.SpecifyKind(date, DateTimeKind.Utc);
                         }
-                        else
+                        else if (date.Kind == DateTimeKind.Local)
                         {
-                            if (date.Kind == DateTimeKind.Unspecified)
-                                property.CurrentValue = DateTime.SpecifyKind(date, DateTimeKind.Utc);
-                            else if (date.Kind == DateTimeKind.Local)
-                                property.CurrentValue = date.ToUniversalTime();
+                            property.CurrentValue = date.ToUniversalTime();
+                        }
+                    }
+                    else if (property.Metadata.ClrType == typeof(DateTime?) && property.CurrentValue != null)
+                    {
+                        var date = ((DateTime?)property.CurrentValue).Value;
+
+                        if (date.Kind == DateTimeKind.Unspecified)
+                        {
+                            property.CurrentValue = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                        }
+                        else if (date.Kind == DateTimeKind.Local)
+                        {
+                            property.CurrentValue = date.ToUniversalTime();
                         }
                     }
                 }

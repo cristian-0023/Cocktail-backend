@@ -8,9 +8,8 @@ using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 
 // ================= BLINDAJE UTC ACTIVO =================
-// Switch requerido para compatibilidad con esquema existente en PostgreSQL
-// (columnas creadas antes como 'timestamp' sin time zone no se pueden alterar con EnsureCreated)
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+// Npgsql 6.0+ requiere que los DateTime con Kind=Utc se mapeen a 'timestamp with time zone'.
+// Eliminamos el switch de comportamiento legado para forzar el estándar UTC moderno.
 
 var builder = WebApplication.CreateBuilder(args);
 Console.WriteLine("--- BACKEND STARTING: SECURE MODE ---");
