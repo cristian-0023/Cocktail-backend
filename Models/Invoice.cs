@@ -12,7 +12,7 @@ namespace Cocktail.back.Models
         [Required]
         public int IdOrder { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         [Required]
         [MaxLength(100)]

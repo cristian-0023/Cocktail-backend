@@ -22,6 +22,6 @@ namespace Cocktail.back.Models
 
         public bool Disponibilidad { get; set; } = true;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     }
 }

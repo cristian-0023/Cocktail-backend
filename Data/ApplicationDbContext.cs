@@ -48,6 +48,7 @@ namespace Cocktail.back.Data
                     {
                         if (property.CurrentValue is DateTime dt)
                         {
+                            // Garantiza que el Kind siempre sea Utc antes de enviar a Postgres
                             property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
                         }
                         else if (property.CurrentValue is DateTime? ndt && ndt.HasValue)
