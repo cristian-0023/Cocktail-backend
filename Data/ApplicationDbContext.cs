@@ -40,8 +40,7 @@ namespace Cocktail.back.Data
 
         private void EnforceUtcOnTrackedEntities()
         {
-            // Interceptamos absolutamente todas las entidades rastreadas (Added, Modified, Unchanged)
-            // Unchanged se incluye por si acaso una entidad leída se envía de vuelta sin cambios pero con Kind incorrecto
+            // Interceptamos absolutamente todas las entidades rastreadas (pueden ser muchas en un grafo)
             foreach (var entry in ChangeTracker.Entries())
             {
                 foreach (var property in entry.Properties)
@@ -68,40 +67,43 @@ namespace Cocktail.back.Data
             }
         }
 
-        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-        {
-            // Este es el método más robusto en EF Core 7/8/9 para manejo global de tipos
-            configurationBuilder.Properties<DateTime>().HaveConversion<DateTimeToUtcConverter>();
-            configurationBuilder.Properties<DateTime?>().HaveConversion<NullableDateTimeToUtcConverter>();
-        }
-
-        private class DateTimeToUtcConverter : ValueConverter<DateTime, DateTime>
-        {
-            public DateTimeToUtcConverter() : base(
-                v => v.Kind == DateTimeKind.Utc ? v : (v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : DateTime.SpecifyKind(v, DateTimeKind.Utc)),
-                v => DateTime.SpecifyKind(v, DateTimeKind.Utc))
-            { }
-        }
-
-        private class NullableDateTimeToUtcConverter : ValueConverter<DateTime?, DateTime?>
-        {
-            public NullableDateTimeToUtcConverter() : base(
-                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : (v.Value.Kind == DateTimeKind.Local ? v.Value.ToUniversalTime() : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc))),
-                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v)
-            { }
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. UTC Logic for Npgsql (Consistent column types)
-            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            // 1. UTC Logic for Npgsql (Surgical Fix V5)
+            // Definimos el conversor fuera para reusarlo
+            var utcConverter = new ValueConverter<DateTime, DateTime>(
+                v => v.Kind == DateTimeKind.Utc ? v : (v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : DateTime.SpecifyKind(v, DateTimeKind.Utc)),
+                v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+            );
+
+            var nullableUtcConverter = new ValueConverter<DateTime?, DateTime?>(
+                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : (v.Value.Kind == DateTimeKind.Local ? v.Value.ToUniversalTime() : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc))),
+                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v
+            );
+
+            // Configuramos explícitamente cada entidad conocida para evitar fallos de reflexión
+            ConfigureUtc(modelBuilder.Entity<User>());
+            ConfigureUtc(modelBuilder.Entity<Product>());
+            ConfigureUtc(modelBuilder.Entity<Cart>());
+            ConfigureUtc(modelBuilder.Entity<CartItem>());
+            ConfigureUtc(modelBuilder.Entity<Order>());
+            ConfigureUtc(modelBuilder.Entity<OrderItem>());
+            ConfigureUtc(modelBuilder.Entity<Invoice>());
+
+            void ConfigureUtc<T>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<T> entity) where T : class
             {
-                foreach (var property in entityType.GetProperties())
+                foreach (var property in entity.Metadata.GetProperties())
                 {
-                    if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
+                    if (property.ClrType == typeof(DateTime))
                     {
+                        property.SetValueConverter(utcConverter);
+                        property.SetColumnType("timestamp with time zone");
+                    }
+                    else if (property.ClrType == typeof(DateTime?))
+                    {
+                        property.SetValueConverter(nullableUtcConverter);
                         property.SetColumnType("timestamp with time zone");
                     }
                 }

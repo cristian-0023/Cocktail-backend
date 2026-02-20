@@ -7,9 +7,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 
-// ================= BLINDAJE UTC ACTIVO V3 (MODO SEGURIDAD) =================
-// Habilitamos el comportamiento legado como SALVAGUARDA FINAL.
-// Esto permite que el driver maneje local times convirtiéndolos a UTC en lugar de crashear.
+// ================= BLINDAJE UTC ACTIVO V5 (MODO COMPATIBILIDAD TOTAL) =================
+// Habilitamos el comportamiento legado para evitar que Npgsql aborte la operación.
+// El driver ahora convertirá automáticamente cualquier fecha Local a UTC.
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 AppContext.SetSwitch("Npgsql.DisableDateTimeInfinityConversions", true);
 
