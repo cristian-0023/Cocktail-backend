@@ -22,7 +22,7 @@ namespace Cocktail.back.Services
             if (cart == null)
             {
                 // Return a transient cart for READ ONLY (no SaveChanges here)
-                return new Cart { IdUsuario = userId, Items = new System.Collections.Generic.List<CartItem>() };
+                return new Cart { IdUsuario = userId, CreatedDate = DateTime.UtcNow, Items = new System.Collections.Generic.List<CartItem>() };
             }
             return cart;
         }
@@ -36,7 +36,7 @@ namespace Cocktail.back.Services
 
             if (cart == null) 
             {
-                cart = new Cart { IdUsuario = userId, Items = new System.Collections.Generic.List<CartItem>() };
+                cart = new Cart { IdUsuario = userId, CreatedDate = DateTime.UtcNow, Items = new System.Collections.Generic.List<CartItem>() };
             }
 
             var existingItem = cart.Items.FirstOrDefault(i => i.IdProducto == productId);
