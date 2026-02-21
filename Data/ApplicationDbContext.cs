@@ -38,9 +38,39 @@ namespace Cocktail.back.Data
             return await base.SaveChangesAsync(cancellationToken);
         }
 
+        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+        {
+            // Global UTC enforcement for all DateTime properties
+            configurationBuilder
+                .Properties<DateTime>()
+                .HaveConversion<UtcValueConverter>();
+
+            configurationBuilder
+                .Properties<DateTime?>()
+                .HaveConversion<NullableUtcValueConverter>();
+        }
+
+        private class UtcValueConverter : ValueConverter<DateTime, DateTime>
+        {
+            public UtcValueConverter() : base(
+                v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc),
+                v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc))
+            {
+            }
+        }
+
+        private class NullableUtcValueConverter : ValueConverter<DateTime?, DateTime?>
+        {
+            public NullableUtcValueConverter() : base(
+                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)),
+                v => v.HasValue && v.Value.Kind == DateTimeKind.Utc ? v : (v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v))
+            {
+            }
+        }
+
         private void EnforceUtcOnTrackedEntities()
         {
-            // Interceptamos absolutamente todas las entidades rastreadas (pueden ser muchas en un grafo)
+            // Safeguard for any entities modified outside the convention-aware paths
             foreach (var entry in ChangeTracker.Entries())
             {
                 foreach (var property in entry.Properties)
@@ -49,18 +79,14 @@ namespace Cocktail.back.Data
                     {
                         if (dt.Kind != DateTimeKind.Utc)
                         {
-                            property.CurrentValue = dt.Kind == DateTimeKind.Local 
-                                ? dt.ToUniversalTime() 
-                                : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                            property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
                         }
                     }
                     else if (property.Metadata.ClrType == typeof(DateTime?) && property.CurrentValue is DateTime dtNullable)
                     {
                         if (dtNullable.Kind != DateTimeKind.Utc)
                         {
-                            property.CurrentValue = dtNullable.Kind == DateTimeKind.Local 
-                                ? dtNullable.ToUniversalTime() 
-                                : DateTime.SpecifyKind(dtNullable, DateTimeKind.Utc);
+                            property.CurrentValue = DateTime.SpecifyKind(dtNullable, DateTimeKind.Utc);
                         }
                     }
                 }
@@ -71,43 +97,8 @@ namespace Cocktail.back.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. UTC Logic for Npgsql (Surgical Fix V5)
-            // Definimos el conversor fuera para reusarlo
-            var utcConverter = new ValueConverter<DateTime, DateTime>(
-                v => v.Kind == DateTimeKind.Utc ? v : (v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : DateTime.SpecifyKind(v, DateTimeKind.Utc)),
-                v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
-            );
-
-            var nullableUtcConverter = new ValueConverter<DateTime?, DateTime?>(
-                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : (v.Value.Kind == DateTimeKind.Local ? v.Value.ToUniversalTime() : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc))),
-                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v
-            );
-
-            // Configuramos explícitamente cada entidad conocida para evitar fallos de reflexión
-            ConfigureUtc(modelBuilder.Entity<User>());
-            ConfigureUtc(modelBuilder.Entity<Product>());
-            ConfigureUtc(modelBuilder.Entity<Cart>());
-            ConfigureUtc(modelBuilder.Entity<CartItem>());
-            ConfigureUtc(modelBuilder.Entity<Order>());
-            ConfigureUtc(modelBuilder.Entity<OrderItem>());
-            ConfigureUtc(modelBuilder.Entity<Invoice>());
-
-            void ConfigureUtc<T>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<T> entity) where T : class
-            {
-                foreach (var property in entity.Metadata.GetProperties())
-                {
-                    if (property.ClrType == typeof(DateTime))
-                    {
-                        property.SetValueConverter(utcConverter);
-                        property.SetColumnType("timestamp with time zone");
-                    }
-                    else if (property.ClrType == typeof(DateTime?))
-                    {
-                        property.SetValueConverter(nullableUtcConverter);
-                        property.SetColumnType("timestamp with time zone");
-                    }
-                }
-            }
+            // 1. UTC Logic for Npgsql (Globalized via ConfigureConventions)
+            // No manual property configuration needed here anymore.
 
             // 2. Decimal Precision
             modelBuilder.Entity<Product>().Property(p => p.Precio).HasPrecision(10, 2);

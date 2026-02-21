@@ -7,14 +7,12 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 
-// ================= BLINDAJE UTC ACTIVO V5 (MODO COMPATIBILIDAD TOTAL) =================
-// Habilitamos el comportamiento legado para evitar que Npgsql aborte la operación.
-// El driver ahora convertirá automáticamente cualquier fecha Local a UTC.
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-AppContext.SetSwitch("Npgsql.DisableDateTimeInfinityConversions", true);
+// ================= BLINDAJE UTC ACTIVO V6 (PROCESAMIENTO UTC CENTRALIZADO) =================
+// Npgsql 6.0+ por defecto usa el comportamiento moderno. 
+// Las conversiones se manejan centralizadamente en ApplicationDbContext.
 
 var builder = WebApplication.CreateBuilder(args);
-Console.WriteLine("--- BACKEND STARTING: SECURE MODE ---");
+Console.WriteLine("--- BACKEND STARTING: SECURE UTC MODE ---");
 
 // 1. Services Configuration
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
