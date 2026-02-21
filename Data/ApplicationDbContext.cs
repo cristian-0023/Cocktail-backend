@@ -59,16 +59,16 @@ namespace Cocktail.back.Data
             }
         }
 
-        // --- ESTA ES LA PARTE CORREGIDA ---
+        // --- ESTA ES LA VERSIÓN SIMPLIFICADA QUE NO DA ERROR DE SINTAXIS ---
         private class NullableUtcValueConverter : ValueConverter<DateTime?, DateTime?>
         {
             public NullableUtcValueConverter() : base(
-                v => v.HasValue ? (DateTime?)DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : null,
-                v => v.HasValue ? (DateTime?)DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : null)
+                v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc),
+                v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc))
             {
             }
         }
-        // ----------------------------------
+        // -------------------------------------------------------------------
 
         private void EnforceUtcOnTrackedEntities()
         {
@@ -122,7 +122,6 @@ namespace Cocktail.back.Data
                 .HasForeignKey(ci => ci.IdProducto);
 
             // 4. Seeding Data
-            // Fecha fija UTC para evitar DateTimeKind.Unspecified en seed data (Npgsql 8.0 strict)
             var seedDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
             // Roles
@@ -131,7 +130,7 @@ namespace Cocktail.back.Data
                 new Role { IdRol = 2, NombreRol = "Invitado" }
             );
 
-            // Products (15 Items) - CreatedDate explícito para compatibilidad Npgsql
+            // Products
             modelBuilder.Entity<Product>().HasData(
                 new Product { IdProducto = 1, Nombre = "Granizado de Fresa", Description = "Clásico refrescante de fresas silvestres.", Precio = 12000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ17o_k7g2VYrkVZ_4y8CStSZvMOi45NXFT4A&s", CreatedDate = seedDate },
                 new Product { IdProducto = 2, Nombre = "Granizado de Limón", Description = "El balance perfecto entre ácido y dulce.", Precio = 10000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSlRLGzL5MU25UJ0N3OSkTRgU2FYs9II_OPvA&s", CreatedDate = seedDate },
@@ -150,8 +149,7 @@ namespace Cocktail.back.Data
                 new Product { IdProducto = 15, Nombre = "Granizado Rainbow", Description = "Toque de mil colores y saludable.", Precio = 15000, ImagenURL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrSdyXSVmTVI9ILfCa1bW5V7CgLOU-im-wOA&s", CreatedDate = seedDate }
             );
 
-            // Admin User (Stable Hash + UTC date)
-            // Password: "Cristian@019"
+            // Admin User
             string stableHash = "$2a$11$Xm77ZfGz/4r.Y1D2oB7Q/ueo.D0Gz.yJ6W.Vv2o.P6iMhO7L6J9XyG";
 
             modelBuilder.Entity<User>().HasData(
