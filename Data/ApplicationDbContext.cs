@@ -38,19 +38,58 @@ namespace Cocktail.back.Data
             return await base.SaveChangesAsync(cancellationToken);
         }
 
+        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+        {
+            // Global UTC enforcement for all DateTime properties
+            configurationBuilder
+                .Properties<DateTime>()
+                .HaveConversion<UtcValueConverter>();
+
+            configurationBuilder
+                .Properties<DateTime?>()
+                .HaveConversion<NullableUtcValueConverter>();
+        }
+
+        private class UtcValueConverter : ValueConverter<DateTime, DateTime>
+        {
+            public UtcValueConverter() : base(
+                v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc),
+                v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc))
+            {
+            }
+        }
+
+        // --- ESTA ES LA PARTE CORREGIDA ---
+        private class NullableUtcValueConverter : ValueConverter<DateTime?, DateTime?>
+        {
+            public NullableUtcValueConverter() : base(
+                v => v.HasValue ? (DateTime?)DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : null,
+                v => v.HasValue ? (DateTime?)DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : null)
+            {
+            }
+        }
+        // ----------------------------------
+
         private void EnforceUtcOnTrackedEntities()
         {
+            // Safeguard for any entities modified outside the convention-aware paths
             foreach (var entry in ChangeTracker.Entries())
             {
                 foreach (var property in entry.Properties)
                 {
                     if (property.Metadata.ClrType == typeof(DateTime) && property.CurrentValue is DateTime dt)
                     {
-                        property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                        if (dt.Kind != DateTimeKind.Utc)
+                        {
+                            property.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                        }
                     }
                     else if (property.Metadata.ClrType == typeof(DateTime?) && property.CurrentValue is DateTime dtNullable)
                     {
-                        property.CurrentValue = DateTime.SpecifyKind(dtNullable, DateTimeKind.Utc);
+                        if (dtNullable.Kind != DateTimeKind.Utc)
+                        {
+                            property.CurrentValue = DateTime.SpecifyKind(dtNullable, DateTimeKind.Utc);
+                        }
                     }
                 }
             }
@@ -60,25 +99,8 @@ namespace Cocktail.back.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. UTC Logic for Npgsql (Surgical Fix V7)
-            var utcConverter = new ValueConverter<DateTime, DateTime>(
-                v => DateTime.SpecifyKind(v, DateTimeKind.Utc),
-                v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
-            );
-
-            var nullableUtcConverter = new ValueConverter<DateTime?, DateTime?>(
-                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : (DateTime?)null,
-                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : (DateTime?)null
-            );
-
-            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-            {
-                foreach (var property in entityType.GetProperties())
-                {
-                    if (property.ClrType == typeof(DateTime)) property.SetValueConverter(utcConverter);
-                    else if (property.ClrType == typeof(DateTime?)) property.SetValueConverter(nullableUtcConverter);
-                }
-            }
+            // 1. UTC Logic for Npgsql (Globalized via ConfigureConventions)
+            // No manual property configuration needed here anymore.
 
             // 2. Decimal Precision
             modelBuilder.Entity<Product>().Property(p => p.Precio).HasPrecision(10, 2);
